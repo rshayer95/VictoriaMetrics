@@ -89,9 +89,9 @@ func loadFromFileOrNew(filePath string, maxBytes int) *fastcache.Cache {
 	// Inverted logic: handle unexpected/loggable cases first
 	if strings.Contains(err.Error(), "contains maxBytes") {
 		logger.Warnf("cache file %s has mismatched memory size: %v", filePath, err)
-	} else if !errors.Is(err, os.ErrNotExist) && !strings.Contains(err.Error(), "no such file or directory") {
-		// Only log if it's not a missing file
-		logger.Infof("creating new cache at %s due to: %v", filePath, err)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		// Likely corruption or unexpected format
+		logger.Errorf("failed to load cache file %s: %v", filePath, err)
 	}
 
 	return fastcache.New(maxBytes)
