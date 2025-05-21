@@ -78,8 +78,8 @@ func loadFromFileOrNew(filePath string, maxBytes int) *fastcache.Cache {
 	if errors.Is(err, os.ErrNotExist) {
 		logger.Infof("cache file %s not found; creating new", filePath)
 		return fastcache.New(maxBytes)
-		
-		// covers the reset cache reset due to max memory size change at
+
+		// covers the cache reset due to max memory size change at
 		// https://github.com/VictoriaMetrics/fastcache/blob/198c85ee90a1f65127126b5904c191e70f083cbf/file.go#L133
 	} else if err != nil && strings.Contains(err.Error(), "contains maxBytes") {
 		logger.Warnf("cache file %s couldn't be used: %s; creating new", filePath, err)
