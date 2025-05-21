@@ -73,28 +73,23 @@ func Load(filePath string, maxBytes int) *Cache {
 // and a new cache is created with the specified maxBytes size.
 //
 // This improves observability by surfacing cache loading issues that would otherwise be silenty ignored.
-//
-// Arguments:
-// - filePath: Path to the Cache file to load.
-// - maxBytes: Maximum size in bytes for the cache
-//
-// Return:
-// - *fastcache.Cache: A loaded or newly created cache instance.
 func loadFromFileOrNew(filePath string, maxBytes int) *fastcache.Cache {
-	cache, err := fastcache.LoadFromFile(filePath)
-	if err == nil {
-		return cache
+	cache, err := fastcache.LoadFromFile(filePath, maxBytes)
+	if errors.Is(err, os.ErrNotExist) {
+		logger.Infof("cache file %s not found; creating new", filePath)
+		return fastcache.New(maxBytes)
+		
+		// covers the reset cache reset due to max memory size change at
+		// https://github.com/VictoriaMetrics/fastcache/blob/198c85ee90a1f65127126b5904c191e70f083cbf/file.go#L133
+	} else if err != nil && strings.Contains(err.Error(), "contains maxBytes") {
+		logger.Warnf("cache file %s couldn't be used: %s; creating new", filePath, err)
+		return fastcache.New(maxBytes)
+	} else if err != nil {
+		logger.Errorf("cache file %s corrupted: %s; creating new", filePath, err)
+		return fastcache.New(maxBytes)
 	}
 
-	// Inverted logic: handle unexpected/loggable cases first
-	if strings.Contains(err.Error(), "contains maxBytes") {
-		logger.Warnf("cache file %s has mismatched memory size: %v", filePath, err)
-	} else if !errors.Is(err, os.ErrNotExist) {
-		// Likely corruption or unexpected format
-		logger.Errorf("failed to load cache file %s: %v", filePath, err)
-	}
-
-	return fastcache.New(maxBytes)
+	return cache
 }
 
 func loadWithExpire(filePath string, maxBytes int, expireDuration time.Duration) *Cache {

@@ -1,46 +1,137 @@
 package workingsetcache
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/VictoriaMetrics/VictoriaMetrics/lib/logger"
 )
 
 func TestLoadFromFileOrNew(t *testing.T) {
-	tmpDir := t.TempDir()
-	cacheFile := filepath.Join(tmpDir, "test.cache")
-	maxBytes := 1024 * 1024 // 1MB
+	initValidCache := func(t *testing.T, maxBytes int) string {
+		tmpDir, err := os.MkdirTemp("", "test")
+		if err != nil {
+			t.Fatal(err)
+		}
+		filePath := filepath.Join(tmpDir, "TestLoadFromFileOrNew.workingsetcache")
 
-	t.Run("file does not exist", func(t *testing.T) {
+		c := New(maxBytes)
+
+		c.Set([]byte("foo"), []byte("fooVal"))
+		c.Set([]byte("bar"), []byte("barVal"))
+		if err := c.Save(filePath); err != nil {
+			t.Fatalf("Save error: %s", err)
+		}
+
+		t.Cleanup(func() {
+			c.Reset()
+			os.RemoveAll(filePath)
+		})
+
+		return filePath
+	}
+
+	t.Run("CacheDirNotExist", func(t *testing.T) {
+		logBuffer := &bytes.Buffer{}
+		logger.SetOutputForTests(logBuffer)
+		defer logger.ResetOutputForTest()
+
 		// No file created, should fallback silently
-		cache := loadFromFileOrNew(cacheFile, maxBytes)
+		cache := loadFromFileOrNew(`cacheDir/Not/Exist`, 10000)
 		if cache == nil {
 			t.Fatal("expected a new cache instance, got nil")
+		}
+
+		if len(cache.Get(nil, []byte("foo"))) != 0 {
+			t.Fatalf("expected empty cache, got non-empty")
+		}
+		if !strings.Contains(logBuffer.String(), "not found; creating new") {
+			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
 		}
 	})
 
-	t.Run("permission denied", func(t *testing.T) {
-		// Create empty file and remove read permission
-		if err := os.WriteFile(cacheFile, []byte("data"), 0000); err != nil {
-			t.Fatalf("failed to write test cache file: %v", err)
-		}
-		defer os.Chmod(cacheFile, 0644) // restore permission after test
+	t.Run("MetadataFileNotExist", func(t *testing.T) {
+		cachePath := initValidCache(t, 10000)
 
-		cache := loadFromFileOrNew(cacheFile, maxBytes)
+		if err := os.Remove(filepath.Join(cachePath, `metadata.bin`)); err != nil {
+			t.Fatalf("failed to remove metadata.bin file: %v", err)
+		}
+
+		logBuffer := &bytes.Buffer{}
+		logger.SetOutputForTests(logBuffer)
+		defer logger.ResetOutputForTest()
+
+		cache := loadFromFileOrNew(cachePath, 10000)
 		if cache == nil {
 			t.Fatal("expected a new cache instance, got nil")
+		}
+
+		if len(cache.Get(nil, []byte("foo"))) != 0 {
+			t.Fatalf("expected empty cache, got non-empty")
+		}
+		if !strings.Contains(logBuffer.String(), "not found; creating new") {
+			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
 		}
 	})
 
-	t.Run("memory mismatch (corrupt cache file)", func(t *testing.T) {
-		// Write invalid content that simulates mismatch
-		if err := os.WriteFile(cacheFile, []byte("not a real cache file"), 0644); err != nil {
-			t.Fatalf("failed to write corrupt cache file: %v", err)
+	t.Run("MetadataFileCorrupted", func(t *testing.T) {
+		cachePath := initValidCache(t, 10000)
+
+		if err := os.WriteFile(filepath.Join(cachePath, `metadata.bin`), []byte(""), 0644); err != nil {
+			t.Fatalf("failed to write test metadata file: %v", err)
 		}
 
-		cache := loadFromFileOrNew(cacheFile, maxBytes)
+		logBuffer := &bytes.Buffer{}
+		logger.SetOutputForTests(logBuffer)
+		defer logger.ResetOutputForTest()
+
+		cache := loadFromFileOrNew(cachePath, 10000)
 		if cache == nil {
 			t.Fatal("expected a new cache instance, got nil")
+		}
+
+		if len(cache.Get(nil, []byte("foo"))) != 0 {
+			t.Fatalf("expected empty cache, got non-empty")
+		}
+		if !strings.Contains(logBuffer.String(), "corrupted: cannot read maxBucketChunks") {
+			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
+		}
+	})
+
+	t.Run("CacheSizeMismatch", func(t *testing.T) {
+		cachePath := initValidCache(t, 987654321)
+
+		logBuffer := &bytes.Buffer{}
+		logger.SetOutputForTests(logBuffer)
+		defer logger.ResetOutputForTest()
+
+		cache := loadFromFileOrNew(cachePath, 123456789)
+		if cache == nil {
+			t.Fatal("expected a new cache instance, got nil")
+		}
+
+		if len(cache.Get(nil, []byte("foo"))) != 0 {
+			t.Fatalf("expected empty cache, got non-empty")
+		}
+		if !strings.Contains(logBuffer.String(), "contains maxBytes=123456789; want 134217728; creating new") {
+			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
+		}
+	})
+
+	t.Run("LoadedOK", func(t *testing.T) {
+		cachePath := initValidCache(t, 10000)
+
+		cache := loadFromFileOrNew(cachePath, 10000)
+		if cache == nil {
+			t.Fatal("expected a new cache instance, got nil")
+		}
+
+		actualVal := cache.Get(nil, []byte("foo"))
+		if !bytes.Equal(actualVal, []byte("fooVal")) {
+			t.Fatalf("expected cached value 'fooVal', got %q", actualVal)
 		}
 	})
 }
