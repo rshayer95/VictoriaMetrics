@@ -76,16 +76,16 @@ func Load(filePath string, maxBytes int) *Cache {
 func loadFromFileOrNew(filePath string, maxBytes int) *fastcache.Cache {
 	cache, err := fastcache.LoadFromFile(filePath, maxBytes)
 	if errors.Is(err, os.ErrNotExist) {
-		logger.Infof("cache file %s not found; creating new", filePath)
+		logger.Infof("cache file %s not found; init new cache", filePath)
 		return fastcache.New(maxBytes)
 
 		// covers the cache reset due to max memory size change at
 		// https://github.com/VictoriaMetrics/fastcache/blob/198c85ee90a1f65127126b5904c191e70f083cbf/file.go#L133
 	} else if err != nil && strings.Contains(err.Error(), "contains maxBytes") {
-		logger.Warnf("cache file %s couldn't be used: %s; creating new", filePath, err)
+		logger.Warnf("cache file %s couldn't be used: %s; init new cache", filePath, err)
 		return fastcache.New(maxBytes)
 	} else if err != nil {
-		logger.Errorf("cache file %s corrupted: %s; creating new", filePath, err)
+		logger.Errorf("cache file %s corrupted: %s; init new cache", filePath, err)
 		return fastcache.New(maxBytes)
 	}
 

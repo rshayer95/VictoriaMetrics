@@ -48,7 +48,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 		if len(cache.Get(nil, []byte("foo"))) != 0 {
 			t.Fatalf("expected empty cache, got non-empty")
 		}
-		if !strings.Contains(logBuffer.String(), "not found; creating new") {
+		if !strings.Contains(logBuffer.String(), "not found; init new cache") {
 			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
 		}
 	})
@@ -72,7 +72,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 		if len(cache.Get(nil, []byte("foo"))) != 0 {
 			t.Fatalf("expected empty cache, got non-empty")
 		}
-		if !strings.Contains(logBuffer.String(), "not found; creating new") {
+		if !strings.Contains(logBuffer.String(), "not found; init new cache") {
 			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
 		}
 	})
@@ -116,7 +116,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 		if len(cache.Get(nil, []byte("foo"))) != 0 {
 			t.Fatalf("expected empty cache, got non-empty")
 		}
-		if !strings.Contains(logBuffer.String(), "contains maxBytes=123456789; want 134217728; creating new") {
+		if !strings.Contains(logBuffer.String(), "contains maxBytes=123456789; want 134217728; init new cache") {
 			t.Fatalf("expected log message not found; got: %s", logBuffer.String())
 		}
 	})
