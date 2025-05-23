@@ -54,7 +54,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 	})
 
 	t.Run("MetadataFileNotExist", func(t *testing.T) {
-		cachePath := initValidCache(t, 10000)
+		cachePath := newCache(t, 10000)
 
 		if err := os.Remove(filepath.Join(cachePath, `metadata.bin`)); err != nil {
 			t.Fatalf("failed to remove metadata.bin file: %v", err)
@@ -78,7 +78,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 	})
 
 	t.Run("MetadataFileInvalid", func(t *testing.T) {
-		cachePath := initValidCache(t, 10000)
+		cachePath := newCache(t, 10000)
 
 		if err := os.WriteFile(filepath.Join(cachePath, `metadata.bin`), []byte(""), 0644); err != nil {
 			t.Fatalf("failed to write test metadata file: %v", err)
@@ -102,7 +102,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 	})
 
 	t.Run("CacheSizeMismatch", func(t *testing.T) {
-		cachePath := initValidCache(t, 987654321)
+		cachePath := newCache(t, 987654321)
 
 		logBuffer := &bytes.Buffer{}
 		logger.SetOutputForTests(logBuffer)
@@ -122,7 +122,7 @@ func TestLoadFromFileOrNew(t *testing.T) {
 	})
 
 	t.Run("LoadedOK", func(t *testing.T) {
-		cachePath := initValidCache(t, 10000)
+		cachePath := newCache(t, 10000)
 
 		cache := loadFromFileOrNew(cachePath, 10000)
 		if cache == nil {
