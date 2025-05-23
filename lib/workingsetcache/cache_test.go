@@ -11,7 +11,7 @@ import (
 )
 
 func TestLoadFromFileOrNew(t *testing.T) {
-	initValidCache := func(t *testing.T, maxBytes int) string {
+	newCache := func(t *testing.T, maxBytes int) string {
 		tmpDir, err := os.MkdirTemp("", "test")
 		if err != nil {
 			t.Fatal(err)
